@@ -1,28 +1,108 @@
-#  Salary Prediction Insights Dashboard
+# Salary Prediction Insights Dashboard
 
-##  Data Analytics Web App
+## Overview
 
-This is a web-based data analytics tool built with **Flask**. It allows users to upload datasets, perform machine learning predictions, and analyze association rules using intuitive visualizations.
+This project is a web-based data analytics dashboard built with **Flask**. It enables users to upload their own datasets, perform machine learning predictions, and analyze association rules using interactive visualizations.
 
 ---
 
-##  Features
+## Features
 
--  Upload CSV files for analysis  
--  Perform data preprocessing and visualization with **Plotly**
-- Run predictive models like:
+- **Upload CSV files** for analysis
+- **Data preprocessing** and visualization with [Plotly](https://plotly.com/python/)
+- **Predictive modeling**:
   - Linear Regression
   - Ridge Regression
-  - Support Vector Regression
+  - Support Vector Regression (SVR)
   - Random Forest
--  Generate Association Rules using **Apriori Algorithm**
--  Display results and metrics like RMSE and R²
+- **Association Rule Mining** using the Apriori algorithm ([mlxtend](http://rasbt.github.io/mlxtend/))
+- **Interactive dashboard** for:
+  - Exploratory data analysis (EDA)
+  - Model training and evaluation (MSE, R²)
+  - Skill/feature association discovery
 
 ---
 
-##  Tech Stack
+## Tech Stack
 
-- **Backend**: Python, Flask  
-- **Data Processing**: Pandas, NumPy, scikit-learn  
-- **Visualization**: Plotly  
-- **Association Rule Mining**: mlxtend
+- **Backend**: Python, Flask
+- **Data Processing**: Pandas, NumPy, scikit-learn
+- **Visualization**: Plotly
+- **Association Rules**: mlxtend
+- **Frontend**: Bootstrap, HTML/CSS
+
+---
+
+## Project Structure
+
+```
+Salary-Analysis/
+│
+├── app.py
+├── requirements.txt
+├── README.md
+├── static/
+│   ├── style.css
+│   └── imgs/
+│       ├── casestudy.png
+│       ├── load.png
+│       ├── loaddata.png
+│       ├── pred.jpg
+│       └── rules.png
+└── templates/
+    ├── association_rules.html
+    ├── base.html
+    ├── casestudy.html
+    ├── choose_option.html
+    ├── home.html
+    ├── prediction_input.html
+    ├── prediction_result.html
+    └── prediction.html
+```
+
+---
+
+## Getting Started
+
+### 1. Clone the repository
+
+```sh
+git clone https://github.com/yourusername/Salary-Analysis.git
+cd Salary-Analysis
+```
+
+### 2. Install dependencies
+
+```sh
+pip install -r requirements.txt
+```
+
+### 3. Run the application
+
+```sh
+python app.py
+```
+
+### 4. Open in your browser
+
+Go to [http://127.0.0.1:5000/](http://127.0.0.1:5000/) to access the dashboard.
+
+---
+
+
+## License
+
+This project is licensed under the MIT License.
+
+---
+
+## Acknowledgements
+
+- [Flask](https://flask.palletsprojects.com/)
+- [Plotly](https://plotly.com/)
+- [mlxtend](http://rasbt.github.io/mlxtend/)
+- [scikit-learn](https://scikit-learn.org/)
+
+---
+
+Feel free to fork, contribute, or open issues!
