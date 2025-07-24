@@ -718,7 +718,7 @@ def association_rules_view():
 
     skill_keywords = ["Python", "SQL", "Java", "Excel", "AWS", "Spark"]
     special_r_columns = ['r_yn', "r", "r_language", "r_lang"]
-    
+
     skill_columns = []
     for col in dataset_rules.columns:
         if any(skill.lower() in col.lower() for skill in skill_keywords):
@@ -728,42 +728,171 @@ def association_rules_view():
             skill_columns.append(col)
 
     skill_data = dataset_rules[skill_columns].fillna(0)
-
     for col in skill_data.columns:
         skill_data[col] = skill_data[col].apply(lambda x: 1 if x else 0)
 
-    frequent_itemsets = apriori(skill_data, min_support=0.01, use_colnames=True)
 
+    frequent_itemsets = apriori(skill_data, min_support=0.01, use_colnames=True)
+    if frequent_itemsets.empty:
+        # No frequent itemsets found, show a user-friendly message
+        unique_values = {'skills': skill_columns}
+        if request.method == 'POST':
+            selected_skills = request.form.getlist('skills')
+            return render_template('association_rules.html', rules=None, unique_values=unique_values, error="No frequent skill combinations found in the data. Try selecting different skills or uploading a different dataset.", selected_skills=selected_skills)
+        return render_template('association_rules.html', rules=None, unique_values=unique_values, error="No frequent skill combinations found in the data. Try selecting different skills or uploading a different dataset.")
 
     rules = association_rules(frequent_itemsets, metric="lift", min_threshold=0.2, num_itemsets=10)
 
-    rules_json = rules.to_json(orient="records")
-    rules_data = json.loads(rules_json)
-
+    # --- Enhancement: Add expected salary for each rule's antecedents ---
+    # Try to find a salary column
+    salary_col = None
+    for col in dataset_rules.columns:
+        if 'salary' in col.lower():
+            salary_col = col
+            break
 
     unique_values = {
-        'skills': skill_columns 
+        'skills': skill_columns
     }
 
     if request.method == 'POST':
-        selected_skills = request.form.getlist('skills') 
-        
+        selected_skills = request.form.getlist('skills')
         if not selected_skills:
-            return render_template('association_rules.html', rules=[], unique_values=unique_values, error="Please select at least one skill.")
-        
-        selected_skills_set = set(selected_skills)  
-        
-        filtered_rules = []
-        for rule in rules_data:
-            antecedents = set(rule['antecedents']) 
+            return render_template('association_rules.html', rules=None, unique_values=unique_values, error="Please select at least one skill.", selected_skills=[])
+        selected_skills_set = set(selected_skills)
+
+        # Calculate current salary for selected skills
+        salary_col = None
+        for col in dataset_rules.columns:
+            if 'salary' in col.lower():
+                salary_col = col
+                break
+        current_salary = None
+        if salary_col:
+            mask = np.ones(len(dataset_rules), dtype=bool)
+            for skill in selected_skills:
+                if skill in dataset_rules.columns:
+                    mask &= (dataset_rules[skill] == 1)
+            filtered = dataset_rules[mask]
+            if not filtered.empty:
+                current_salary = round(filtered[salary_col].mean(), 2)
+
+        # Suggest salary boost for top 3 unique consequent combinations in rules with highest expected salary
+        boost_candidates = []
+        rules_records = rules.to_dict(orient="records")
+        for rule in rules_records:
+            antecedents = rule['antecedents']
             consequents = rule['consequents']
+            # If antecedents/consequents are frozenset, convert to list
+            if isinstance(antecedents, (set, frozenset)):
+                antecedents_list = list(antecedents)
+            else:
+                antecedents_list = antecedents
+            if isinstance(consequents, (set, frozenset)):
+                consequents_list = list(consequents)
+            else:
+                consequents_list = consequents
+
+            # Only consider rules where all antecedents are in selected_skills and at least one consequent is not
+            if not set(antecedents_list).issubset(selected_skills_set):
+                continue
+            new_skills = [s for s in consequents_list if s not in selected_skills]
+            if not new_skills:
+                continue
+
+            # Calculate expected salary for full combination (antecedents + consequents)
+            expected_salary = None
+            if salary_col and (len(antecedents_list) + len(consequents_list)) > 0:
+                mask = np.ones(len(dataset_rules), dtype=bool)
+                for skill in list(antecedents_list) + list(consequents_list):
+                    if skill in dataset_rules.columns:
+                        mask &= (dataset_rules[skill] == 1)
+                filtered = dataset_rules[mask]
+                if not filtered.empty:
+                    expected_salary = round(filtered[salary_col].mean(), 2)
+
+            if expected_salary is not None and current_salary is not None and expected_salary > current_salary:
+                boost_candidates.append({
+                    'consequents': consequents_list,
+                    'new_salary': expected_salary,
+                    'boost': round(expected_salary - current_salary, 2)
+                })
+
+        # Remove duplicates by consequent combination (as tuple), keep highest new_salary per combination
+        boost_dict = {}
+        for b in boost_candidates:
+            # Clean and validate consequents before creating the key
+            valid_skills = []
+            for skill in b['consequents']:
+                if skill is None or (isinstance(skill, float) and (math.isnan(skill) or skill == 0.0)):
+                    continue
+                skill_str = str(skill).strip()
+                if skill_str and skill_str.lower() != 'nan' and skill_str != '0':
+                    # Remove _yn suffix if present
+                    if skill_str.endswith('_yn'):
+                        skill_str = skill_str[:-3]
+                    valid_skills.append(skill_str)
             
-            if antecedents == selected_skills_set:
-                filtered_rules.append(rule)
+            if valid_skills:  # Only process if we have valid skills
+                key = tuple(sorted(valid_skills))
+                if key not in boost_dict or b['new_salary'] > boost_dict[key]['new_salary']:
+                    new_boost = b.copy()
+                    new_boost['consequents'] = valid_skills
+                    new_boost['skills_str'] = ', '.join(valid_skills)
+                    new_boost['skill'] = new_boost['skills_str']  # For template display
+                    boost_dict[key] = new_boost
 
-        return render_template('association_rules.html', rules=filtered_rules, unique_values=unique_values)
+        # Create final sorted list
+        boost_list = [b for b in boost_dict.values() if b.get('skills_str')]
+        boost_list.sort(key=lambda x: x['new_salary'], reverse=True)
+        skill_boosts = boost_list[:3]  # Get top 3 boosts
 
-    return render_template('association_rules.html', rules=rules_data, unique_values=unique_values)
+        # Only show rules that are relevant to the selected skills (antecedents subset of selected_skills)
+        rules_data = []
+        rules_records = rules.to_dict(orient="records")
+        for rule in rules_records:
+            antecedents = rule['antecedents']
+            consequents = rule['consequents']
+            # If antecedents/consequents are frozenset, convert to list
+            if isinstance(antecedents, (set, frozenset)):
+                antecedents_list = list(antecedents)
+            else:
+                antecedents_list = antecedents
+            if isinstance(consequents, (set, frozenset)):
+                consequents_list = list(consequents)
+            else:
+                consequents_list = consequents
+
+            # Only show rules where all antecedents are in selected_skills
+            if not set(antecedents_list).issubset(selected_skills_set):
+                continue
+
+            expected_salary = None
+            if salary_col and (len(antecedents_list) + len(consequents_list)) > 0:
+                # Filter dataset for rows where all skills in antecedents AND consequents are present (==1)
+                mask = np.ones(len(dataset_rules), dtype=bool)
+                for skill in list(antecedents_list) + list(consequents_list):
+                    if skill in dataset_rules.columns:
+                        mask &= (dataset_rules[skill] == 1)
+                filtered = dataset_rules[mask]
+                if not filtered.empty:
+                    expected_salary = round(filtered[salary_col].mean(), 2)
+
+            rule['expected_salary'] = expected_salary
+            # Convert antecedents/consequents to list for JSON serialization
+            if isinstance(rule['antecedents'], (set, frozenset)):
+                rule['antecedents'] = list(rule['antecedents'])
+            if isinstance(rule['consequents'], (set, frozenset)):
+                rule['consequents'] = list(rule['consequents'])
+            rules_data.append(rule)
+
+        # Sort rules_data by expected_salary descending (highest salary first)
+        rules_data.sort(key=lambda x: (x['expected_salary'] if x['expected_salary'] is not None else -float('inf')), reverse=True)
+
+        return render_template('association_rules.html', rules=rules_data, unique_values=unique_values, selected_skills=selected_skills, skill_boosts=skill_boosts, current_salary=current_salary)
+
+    # On GET, only show the skills selection form, no rules
+    return render_template('association_rules.html', rules=None, unique_values=unique_values, selected_skills=[])
 
 if __name__ == "__main__":
     app.run(debug=True)
