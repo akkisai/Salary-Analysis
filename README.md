@@ -2,7 +2,15 @@
 
 ## Overview
 
+
 This project is a web-based data analytics dashboard built with **Flask**. It enables users to upload their own datasets, perform machine learning predictions, and analyze association rules using interactive visualizations.
+
+
+
+**Key Highlights:**
+- **Case Study:** Dynamically generate custom visualizations by plotting graphs for any columns you select, enabling flexible and interactive data exploration.
+- **Association Rules:** Generate and analyze skill association rules to discover valuable skill combinations and salary boost opportunities.
+- **Prediction:** Select a target, view feature correlations, train multiple regression models (Linear, Ridge, SVR, Random Forest), compare MSE/R², and predict target values using the best model.
 
 ---
 
@@ -20,6 +28,8 @@ This project is a web-based data analytics dashboard built with **Flask**. It en
   - Exploratory data analysis (EDA)
   - Model training and evaluation (MSE, R²)
   - Skill/feature association discovery
+
+- **Salary Boost Suggestions**: Get clear, actionable recommendations on which additional skills (single or multiple) can increase your expected salary, based on association rule mining.
 
 ---
 
