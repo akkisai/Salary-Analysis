@@ -65,12 +65,11 @@ Salary-Analysis/
     ├── casestudy.html
     ├── choose_option.html
     ├── home.html
+    ├── prediction.html
     ├── prediction_input.html
-    ├── prediction_result.html
-    └── prediction.html
+    └── prediction_result.html
 ```
 
----
 
 ## Getting Started
 
